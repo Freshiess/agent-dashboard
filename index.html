@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Live Agent Dashboard</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap');
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0d0f14; --surface: #141720; --surface2: #1c2030;
+    --border: rgba(255,255,255,0.07); --border2: rgba(255,255,255,0.13);
+    --text: #e8eaf0; --muted: #6b7280;
+    --accent: #4f8ef7; --accent-dim: rgba(79,142,247,0.12);
+    --green: #22c87a; --green-dim: rgba(34,200,122,0.12);
+    --amber: #f5a623; --amber-dim: rgba(245,166,35,0.12);
+    --red: #f25757; --red-dim: rgba(242,87,87,0.1);
+    --gold: #f5c842; --gold-dim: rgba(245,200,66,0.12);
+    --purple: #a78bfa;
+    --radius: 12px; --radius-sm: 8px;
+  }
+  body { font-family: 'DM Sans', system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+  .topbar { display: flex; align-items: center; justify-content: space-between; padding: 16px 28px; border-bottom: 1px solid var(--border); background: var(--surface); position: sticky; top: 0; z-index: 10; flex-wrap: wrap; gap: 10px; }
+  .topbar-left { display: flex; align-items: center; gap: 10px; }
+  .topbar-left h1 { font-size: 16px; font-weight: 600; }
+  .live-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.35;} }
+  .topbar-right { display: flex; align-items: center; gap: 10px; }
+  .last-updated { font-size: 12px; color: var(--muted); }
+  .btn-refresh { display: flex; align-items: center; gap: 6px; background: var(--accent-dim); color: var(--accent); border: 1px solid rgba(79,142,247,0.25); border-radius: var(--radius-sm); padding: 7px 14px; font-size: 13px; font-weight: 500; cursor: pointer; font-family: 'DM Sans', sans-serif; }
+  .btn-refresh:hover { background: rgba(79,142,247,0.2); }
+  .btn-refresh.spinning svg { animation: spin 0.6s linear; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .main { padding: 26px 28px; flex: 1; max-width: 1200px; width: 100%; margin: 0 auto; }
+  .section-label { font-size: 11px; font-weight: 500; letter-spacing: 0.09em; color: var(--muted); text-transform: uppercase; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+  .src-badge { font-size: 10px; padding: 2px 8px; border-radius: 10px; letter-spacing: 0; text-transform: none; font-weight: 500; }
+  .src-team { background: var(--accent-dim); color: var(--accent); }
+  .src-agents { background: var(--green-dim); color: var(--green); }
+  .team-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 28px; }
+  .team-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 20px; }
+  .tc-label { font-size: 12px; color: var(--muted); margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
+  .tc-value { font-size: 30px; font-weight: 600; line-height: 1; font-family: 'DM Mono', monospace; }
+  .tc-unit { font-size: 14px; font-weight: 400; color: var(--muted); margin-left: 2px; font-family: 'DM Sans', sans-serif; }
+  .tc-sub { font-size: 11px; color: var(--muted); margin-top: 6px; }
+  .card-green .tc-value { color: var(--green); }
+  .card-blue .tc-value { color: var(--accent); }
+  .card-amber .tc-value { color: var(--amber); }
+  .card-purple .tc-value { color: var(--purple); }
+  .top-card { background: var(--surface); border: 1px solid rgba(245,200,66,0.28); border-radius: var(--radius); padding: 18px 22px; display: flex; align-items: center; gap: 18px; flex-wrap: wrap; margin-bottom: 28px; }
+  .top-crown { font-size: 26px; flex-shrink: 0; }
+  .top-info { flex: 1; min-width: 140px; }
+  .top-info .ti-name { font-size: 18px; font-weight: 600; }
+  .top-info .ti-sub { font-size: 13px; color: var(--muted); margin-top: 2px; }
+  .top-badge { font-size: 11px; font-weight: 500; background: var(--gold-dim); color: var(--gold); border: 1px solid rgba(245,200,66,0.22); padding: 3px 10px; border-radius: 20px; display: inline-block; margin-top: 6px; }
+  .top-stats { display: flex; gap: 20px; }
+  .top-stat .ts-val { font-size: 15px; font-weight: 600; font-family: 'DM Mono', monospace; }
+  .top-stat .ts-lbl { font-size: 10px; color: var(--muted); margin-top: 2px; }
+  .top-score-block { text-align: right; }
+  .top-score-block .score-num { font-size: 32px; font-weight: 600; color: var(--gold); font-family: 'DM Mono', monospace; }
+  .top-score-block .score-lbl { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .agents-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; min-width: 600px; }
+  thead tr { border-bottom: 1px solid var(--border); }
+  th { text-align: left; padding: 12px 16px; font-size: 11px; font-weight: 500; color: var(--muted); text-transform: uppercase; letter-spacing: 0.07em; white-space: nowrap; }
+  td { padding: 14px 16px; font-size: 13px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover { background: rgba(255,255,255,0.018); }
+  tbody tr.rank1 { background: rgba(245,200,66,0.04); }
+  .agent-cell { display: flex; align-items: center; gap: 10px; }
+  .avatar { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; flex-shrink: 0; }
+  .agent-name { font-weight: 500; font-size: 14px; }
+  .rank-badge { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 6px; font-size: 12px; font-weight: 600; font-family: 'DM Mono', monospace; }
+  .r1{background:var(--gold-dim);color:var(--gold);}
+  .r2{background:rgba(200,200,200,0.1);color:#bbb;}
+  .r3{background:var(--amber-dim);color:var(--amber);}
+  .rn{background:var(--surface2);color:var(--muted);}
+  .mono { font-family: 'DM Mono', monospace; }
+  .good{color:var(--green);} .warn{color:var(--amber);} .bad{color:var(--red);}
+  .bar-mini { height: 4px; background: rgba(255,255,255,0.07); border-radius: 2px; margin-top: 5px; overflow: hidden; width: 80px; }
+  .bar-fill { height: 100%; border-radius: 2px; background: var(--accent); }
+  .state-box { padding: 52px 20px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+  .state-box p { color: var(--muted); font-size: 14px; max-width: 400px; line-height: 1.6; }
+  .err-detail { font-size: 11px; color: var(--red); font-family: 'DM Mono', monospace; margin-top: 4px; background: var(--red-dim); padding: 8px 12px; border-radius: 6px; text-align: left; max-width: 480px; word-break: break-all; }
+  @media(max-width:640px){ .topbar,.main{padding:14px 16px;} .top-stats{display:none;} }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-left">
+    <div class="live-dot"></div>
+    <h1>Live Agent Dashboard</h1>
+  </div>
+  <div class="topbar-right">
+    <span class="last-updated" id="last-updated">—</span>
+    <button class="btn-refresh" id="refresh-btn" onclick="refreshData()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
+      Refresh
+    </button>
+  </div>
+</div>
+
+<div class="main">
+  <div class="section-label">Team overview <span class="src-badge src-team">Team Stats tab</span></div>
+  <div class="team-grid">
+    <div class="team-card card-green">
+      <div class="tc-label">Total chats</div>
+      <div class="tc-value" id="team-chats">—</div>
+      <div class="tc-sub">from your sheet</div>
+    </div>
+    <div class="team-card card-blue">
+      <div class="tc-label">Avg first response</div>
+      <div class="tc-value" id="team-frt">—</div>
+      <div class="tc-sub">from your sheet</div>
+    </div>
+    <div class="team-card card-amber">
+      <div class="tc-label">Avg time to close</div>
+      <div class="tc-value" id="team-ttc">—</div>
+      <div class="tc-sub">from your sheet</div>
+    </div>
+    <div class="team-card card-purple">
+      <div class="tc-label">Team CSAT</div>
+      <div class="tc-value" id="team-csat">—</div>
+      <div class="tc-sub">from your sheet</div>
+    </div>
+  </div>
+
+  <div class="section-label">Top performer <span class="src-badge src-agents">Agent Stats tab</span></div>
+  <div id="top-section"><div class="state-box"><p>Click Refresh to load data</p></div></div>
+
+  <div class="section-label" style="margin-top:28px;">Individual stats <span class="src-badge src-agents">Agent Stats tab</span></div>
+  <div class="agents-wrap">
+    <div id="agents-body"><div class="state-box"><p>Click Refresh to load data</p></div></div>
+  </div>
+</div>
+
+<script>
+const API_KEY   = 'AIzaSyDWfhilZ3Ld1jdqxswRA-DrCLrIGGgRRz4';
+const SHEET_ID  = '1-Tz47Zow4xUDNDOGnPXVlEpY2HqkS3BjwlONJVQlC04';
+const TEAM_TAB  = 'Team Stats';
+const AGENT_TAB = 'Agents';
+
+const AV = [
+  {bg:'rgba(79,142,247,0.18)',c:'#7db3ff'},
+  {bg:'rgba(34,200,122,0.18)',c:'#4dd99a'},
+  {bg:'rgba(245,166,35,0.18)',c:'#f7c15e'},
+  {bg:'rgba(242,87,87,0.15)',c:'#f78080'},
+  {bg:'rgba(167,139,250,0.18)',c:'#c4b0fd'},
+];
+
+function initials(name) {
+  const p = name.trim().split(' ').filter(Boolean);
+  return p.length >= 2 ? (p[0][0]+p[1][0]).toUpperCase() : name.trim().slice(0,2).toUpperCase();
+}
+
+function calcScore(a, all) {
+  const maxS = Math.max(...all.map(x=>x.surveys),1);
+  const maxC = Math.max(...all.map(x=>x.chats),1);
+  const maxF = Math.max(...all.map(x=>x.frt),0.01);
+  const maxT = Math.max(...all.map(x=>x.ttc),0.01);
+  const speed = (((maxF-a.frt)/maxF)+((maxT-a.ttc)/maxT))/2*100;
+  return Math.round(a.csat*0.40+(a.surveys/maxS)*100*0.15+(a.chats/maxC)*100*0.20+speed*0.25);
+}
+
+function frtClass(v)  { return v<=1.5?'good':v<=3?'warn':'bad'; }
+function ttcClass(v)  { return v<=8?'good':v<=15?'warn':'bad'; }
+function csatClass(v) { return v>=90?'good':v>=75?'warn':'bad'; }
+
+async function fetchTab(tab) {
+  const range = encodeURIComponent(tab + '!A1:Z500');
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${range}?key=${API_KEY}`;
+  const res = await fetch(url);
+  const json = await res.json();
+  if (!res.ok) throw new Error(json?.error?.message || res.statusText);
+  return json.values || [];
+}
+
+function renderTeam(rows) {
+  const map = new Map();
+  rows.forEach(r => { if (r[0] && r[1] !== undefined) map.set(r[0].trim().toLowerCase(), r[1].trim()); });
+  function find(...keys) {
+    for (const k of keys)
+      for (const [mk, mv] of map) if (mk.includes(k)) return mv;
+    return '—';
+  }
+  const chats = find('chat');
+  const frt   = find('first','frt','response');
+  const ttc   = find('close','ttc');
+  const csat  = find('csat','satisfaction');
+  document.getElementById('team-chats').textContent = chats;
+  document.getElementById('team-frt').innerHTML  = frt  !== '—' ? frt  + '<span class="tc-unit">min</span>' : '—';
+  document.getElementById('team-ttc').innerHTML  = ttc  !== '—' ? ttc  + '<span class="tc-unit">min</span>' : '—';
+  document.getElementById('team-csat').innerHTML = csat !== '—' ? csat + '<span class="tc-unit">%</span>'   : '—';
+}
+
+function renderAgents(rows) {
+  if (rows.length < 2) {
+    document.getElementById('top-section').innerHTML = '<div class="state-box"><p>No agent rows found in Agent Stats tab.</p></div>';
+    document.getElementById('agents-body').innerHTML  = '<div class="state-box"><p>Add agent data to your Agent Stats tab.</p></div>';
+    return;
+  }
+  const headers = rows[0].map(h => h.trim().toLowerCase());
+  const col = (...keys) => headers.findIndex(h => keys.some(k => h.includes(k)));
+  const iName = col('name');
+  const iCsat = col('csat');
+  const iSurv = col('survey');
+  const iChat = col('chat');
+  const iFrt  = col('first','frt','response');
+  const iTtc  = col('close','ttc');
+
+  if (iName === -1) {
+    document.getElementById('agents-body').innerHTML = `<div class="state-box"><p>Could not find a Name column.</p><div class="err-detail">Headers found: ${headers.join(', ')}</div></div>`;
+    return;
+  }
+
+  const agents = [];
+  for (let i = 1; i < rows.length; i++) {
+    const r = rows[i];
+    if (!r[iName]?.trim()) continue;
+    agents.push({
+      name:    r[iName].trim(),
+      csat:    parseFloat(r[iCsat])  || 0,
+      surveys: parseInt(r[iSurv])    || 0,
+      chats:   parseInt(r[iChat])    || 0,
+      frt:     parseFloat(r[iFrt])   || 0,
+      ttc:     parseFloat(r[iTtc])   || 0,
+    });
+  }
+
+  if (!agents.length) {
+    document.getElementById('top-section').innerHTML = '<div class="state-box"><p>No agent rows found.</p></div>';
+    document.getElementById('agents-body').innerHTML  = '<div class="state-box"><p>Fill in agent rows in your Agent Stats tab.</p></div>';
+    return;
+  }
+
+  agents.forEach(a => a.score = calcScore(a, agents));
+  agents.sort((a,b) => b.score - a.score);
+  const maxScore = agents[0].score || 1;
+
+  // Top performer
+  const top = agents[0];
+  document.getElementById('top-section').innerHTML = `
+    <div class="top-card">
+      <div class="top-crown">🏆</div>
+      <div class="top-info">
+        <div class="ti-name">${top.name}</div>
+        <div class="ti-sub">Highest combined performance score</div>
+        <span class="top-badge">#1 this period</span>
+      </div>
+      <div class="top-stats">
+        <div class="top-stat"><div class="ts-val ${csatClass(top.csat)}">${top.csat}%</div><div class="ts-lbl">CSAT</div></div>
+        <div class="top-stat"><div class="ts-val">${top.chats}</div><div class="ts-lbl">Chats</div></div>
+        <div class="top-stat"><div class="ts-val ${frtClass(top.frt)}">${top.frt}m</div><div class="ts-lbl">1st resp</div></div>
+        <div class="top-stat"><div class="ts-val ${ttcClass(top.ttc)}">${top.ttc}m</div><div class="ts-lbl">To close</div></div>
+      </div>
+      <div class="top-score-block">
+        <div class="score-num">${top.score}</div>
+        <div class="score-lbl">combined score</div>
+      </div>
+    </div>`;
+
+  // Table
+  const rows2 = agents.map((a,i) => {
+    const col2 = AV[i%AV.length];
+    const rc   = i===0?'r1':i===1?'r2':i===2?'r3':'rn';
+    const pct  = Math.round((a.score/maxScore)*100);
+    return `<tr class="${i===0?'rank1':''}">
+      <td><span class="rank-badge ${rc}">${i+1}</span></td>
+      <td><div class="agent-cell">
+        <div class="avatar" style="background:${col2.bg};color:${col2.c};">${initials(a.name)}</div>
+        <span class="agent-name">${a.name}</span>
+      </div></td>
+      <td><span class="mono ${csatClass(a.csat)}">${a.csat}%</span></td>
+      <td><span class="mono">${a.surveys}</span></td>
+      <td><span class="mono">${a.chats}</span></td>
+      <td><span class="mono ${frtClass(a.frt)}">${a.frt} min</span></td>
+      <td><span class="mono ${ttcClass(a.ttc)}">${a.ttc} min</span></td>
+      <td><span class="mono" style="font-weight:500">${a.score}</span>
+        <div class="bar-mini"><div class="bar-fill" style="width:${pct}%"></div></div>
+      </td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('agents-body').innerHTML = `
+    <table>
+      <thead><tr>
+        <th>#</th><th>Agent</th><th>CSAT</th><th>Surveys</th><th>Chats</th><th>Avg 1st resp</th><th>Time to close</th><th>Score</th>
+      </tr></thead>
+      <tbody>${rows2}</tbody>
+    </table>`;
+}
+
+function showErr(id, msg, detail) {
+  const d = detail ? `<div class="err-detail">${detail}</div>` : '';
+  document.getElementById(id).innerHTML = `<div class="state-box">
+    <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#f25757" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+    <p>${msg}</p>${d}</div>`;
+}
+
+async function refreshData() {
+  const btn = document.getElementById('refresh-btn');
+  btn.classList.add('spinning');
+
+  const [teamRes, agentRes] = await Promise.allSettled([
+    fetchTab(TEAM_TAB),
+    fetchTab(AGENT_TAB),
+  ]);
+
+  if (teamRes.status === 'fulfilled') {
+    renderTeam(teamRes.value);
+  } else {
+    ['team-chats','team-frt','team-ttc','team-csat'].forEach(id => document.getElementById(id).textContent = 'Error');
+    console.error('Team tab error:', teamRes.reason);
+  }
+
+  if (agentRes.status === 'fulfilled') {
+    renderAgents(agentRes.value);
+  } else {
+    showErr('top-section', 'Could not load Agent Stats tab.', agentRes.reason?.message);
+    showErr('agents-body', 'Could not load Agent Stats tab.', agentRes.reason?.message);
+    console.error('Agent tab error:', agentRes.reason);
+  }
+
+  document.getElementById('last-updated').textContent =
+    'Updated ' + new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+  setTimeout(() => btn.classList.remove('spinning'), 500);
+}
+
+// Auto-load on open
+refreshData();
+</script>
+</body>
+</html>
