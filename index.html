@@ -285,7 +285,8 @@ const API_KEY   = 'AIzaSyBe-Gza-eO5yZG6GkRw1EAwco8nrCMYo14';
 const SHEET_ID  = '1-Tz47Zow4xUDNDOGnPXVlEpY2HqkS3BjwlONJVQlC04';
 const TEAM_TAB  = 'Team Stats';
 const AGENT_TAB    = 'Agents';
-const PREV_TAB     = 'Previous Week';
+const PREV_TAB       = 'Previous Week';
+const THIS_WEEK_TAB  = 'This Week';
 const PREV_MONTH_TAB = 'Previous Month';
 const WEEKLY_LOG_TAB = 'Weekly Log';
 
@@ -371,7 +372,7 @@ function trendHTML(curr, prev, lowerIsBetter) {
   return `<span class="tc-trend ${cls}">${arrow} ${sign}${pct}% vs last week</span>`;
 }
 
-function renderTeam(rows, prevRows, prevMonthRows) {
+function renderTeam(rows, prevRows, prevMonthRows, thisWeekRows) {
   const curr = parseTeam(rows);
   const prev = prevRows ? parseTeam(prevRows) : {};
 
@@ -386,7 +387,10 @@ function renderTeam(rows, prevRows, prevMonthRows) {
   document.getElementById('trend-ttc').innerHTML   = trendHTML(curr.ttc,   prev.ttc,   true);
   document.getElementById('trend-csat').innerHTML  = trendHTML(curr.csat,  prev.csat,  false);
 
-  if (prevRows) renderWoW(curr, prev, 'wow-grid-week', 'This week', 'Last week');
+  if (prevRows) {
+    const thisWeek = thisWeekRows ? parseTeam(thisWeekRows) : curr;
+    renderWoW(thisWeek, prev, 'wow-grid-week', 'This week', 'Last week');
+  }
   if (prevMonthRows) {
     const prevMonth = parseTeam(prevMonthRows);
     renderWoW(curr, prevMonth, 'wow-grid-month', 'This month', 'Last month');
@@ -722,6 +726,8 @@ async function refreshData() {
 
   const sleep = ms => new Promise(r => setTimeout(r, ms));
 
+  const thisWeekRes  = await Promise.allSettled([fetchTab(THIS_WEEK_TAB)]).then(r => r[0]);
+  await sleep(300);
   const teamRes      = await Promise.allSettled([fetchTab(TEAM_TAB)]).then(r => r[0]);
   await sleep(300);
   const agentRes     = await Promise.allSettled([fetchTab(AGENT_TAB)]).then(r => r[0]);
@@ -733,9 +739,10 @@ async function refreshData() {
   const weeklyRes    = await Promise.allSettled([fetchTab(WEEKLY_LOG_TAB)]).then(r => r[0]);
 
   if (teamRes.status === 'fulfilled') {
-    const prevRows = prevRes.status === 'fulfilled' ? prevRes.value : null;
+    const prevRows      = prevRes.status === 'fulfilled' ? prevRes.value : null;
     const prevMonthRows = prevMonthRes.status === 'fulfilled' ? prevMonthRes.value : null;
-    renderTeam(teamRes.value, prevRows, prevMonthRows);
+    const thisWeekRows  = thisWeekRes.status === 'fulfilled' ? thisWeekRes.value : null;
+    renderTeam(teamRes.value, prevRows, prevMonthRows, thisWeekRows);
   } else {
     ['team-chats','team-frt','team-ttc','team-csat'].forEach(id => document.getElementById(id).textContent = 'Error');
     console.error('Team tab error:', teamRes.reason);
